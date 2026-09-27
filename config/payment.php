@@ -37,6 +37,17 @@ return [
             'webhook_secret' => env('EASYPAY_WEBHOOK_SECRET'),
             'sandbox' => env('EASYPAY_SANDBOX', true),
         ],
+        'pagbank' => [
+            'driver' => 'PagBank',
+            // Brazil-specific Orders API / PIX gateway: disabled unless explicitly enabled.
+            'enabled' => env('PAGBANK_ENABLED', false),
+            'gateway' => Domain\Payments\Gateways\PagBankGateway::class,
+            'handler' => Domain\Payments\Handlers\PagBankPaymentHandler::class,
+            'token' => env('PAGBANK_TOKEN'),
+            'sandbox' => env('PAGBANK_SANDBOX', true),
+            'pix_expiration_minutes' => (int) env('PAGBANK_PIX_EXPIRATION_MINUTES', 30),
+            'payment_page_ttl_minutes' => (int) env('PAGBANK_PAYMENT_PAGE_TTL_MINUTES', 60),
+        ],
     ],
 
 ];
