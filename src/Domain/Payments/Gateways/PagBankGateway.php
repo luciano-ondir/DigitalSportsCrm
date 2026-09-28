@@ -5,6 +5,7 @@ namespace Domain\Payments\Gateways;
 use Domain\Documents\Models\Document;
 use Domain\Payments\DataTransferObject\PaymentResponseData;
 use Domain\Payments\Models\PaymentTransaction;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -24,6 +25,14 @@ class PagBankGateway extends AbstractPaymentGateway
     public function createPayment(Document $document): PaymentResponseData
     {
         $this->validateConfig(['token']);
+        if (
+            strtoupper((string) config('currency.code', 'EUR'))
+            !== 'BRL'
+        ) {
+            return PaymentResponseData::failed(
+                'PagBank PIX requires CURRENCY_CODE=BRL.'
+            );
+        }
 
         $amountInCents = (int) round(((float) $document->total_value) * 100);
 
@@ -42,12 +51,65 @@ class PagBankGateway extends AbstractPaymentGateway
         $transaction = $this->createPaymentTransaction($document, 'pending');
         $payload = $this->buildOrderPayload($document, $transaction, $amountInCents, $taxId);
 
-        $response = $this->apiRequest()
-            ->withHeaders([
-                'x-idempotency-key' => str_replace('-', '', (string) $transaction->id),
-            ])
-            ->post($this->apiUrl('/orders'), $payload);
+        $orderUrl = $this->apiUrl('/orders');
 
+        $this->logPaymentActivity('Sending PIX order to PagBank', [
+            'url' => $orderUrl,
+            'sandbox' => (bool) $this->getConfig('sandbox', true),
+            'document_id' => (string) $document->id,
+            'transaction_id' => (string) $transaction->id,
+            'amount_cents' => $amountInCents,
+            'webhook_url' => $this->getWebhookUrl(),
+        ]);
+
+        try {
+            $response = $this->apiRequest()
+                ->withHeaders([
+                    'x-idempotency-key' => str_replace(
+                        '-',
+                        '',
+                        (string) $transaction->id
+                    ),
+                ])
+                ->post($orderUrl, $payload);
+        } catch (ConnectionException $e) {
+            $message =
+                'Could not connect to PagBank Sandbox: '
+                . $e->getMessage();
+
+            $this->updatePaymentTransaction(
+                $transaction,
+                'failed',
+                [
+                    'connection_error' => $e->getMessage(),
+                    'url' => $orderUrl,
+                ],
+                $message
+            );
+
+            $this->logPaymentActivity(
+                'PagBank connection failed',
+                [
+                    'url' => $orderUrl,
+                    'transaction_id' => (string) $transaction->id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return PaymentResponseData::failed(
+                $message,
+                (string) $transaction->id
+            );
+        }
+
+        $this->logPaymentActivity(
+            'PagBank order response received',
+            [
+                'transaction_id' => (string) $transaction->id,
+                'http_status' => $response->status(),
+                'successful' => $response->successful(),
+            ]
+        );
         if (! $response->successful()) {
             $message = $this->extractErrorMessage($response);
             $this->updatePaymentTransaction(
@@ -215,7 +277,20 @@ class PagBankGateway extends AbstractPaymentGateway
 
     public function getWebhookUrl(): ?string
     {
-        return url('/api/payment/webhook/pagbank');
+        /*
+        * Use APP_URL explicitly.
+        *
+        * During local development the browser may be accessing localhost,
+        * while PagBank must receive a publicly reachable HTTPS notification
+        * URL such as the ngrok address.
+        */
+        $baseUrl = rtrim(
+            (string) config('app.url'),
+            '/'
+        );
+
+        return $baseUrl
+            . '/api/payment/webhook/pagbank';
     }
 
     public function validateWebhookSignature(array $headers, string $payload): bool
@@ -315,10 +390,13 @@ class PagBankGateway extends AbstractPaymentGateway
 
     private function apiRequest(): PendingRequest
     {
-        return Http::withToken((string) $this->getConfig('token'))
+        return Http::withToken(
+            trim((string) $this->getConfig('token'))
+        )
             ->acceptJson()
             ->asJson()
-            ->timeout(20);
+            ->connectTimeout(5)
+            ->timeout(15);
     }
 
     private function apiUrl(string $path): string
