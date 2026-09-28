@@ -22,10 +22,37 @@ this will be familiar if you have deployed Laravel before.
 
 ## Quick start (local)
 
-```bash
-git clone <your-repo-url>
-cd <repo>
+### Get the code
 
+Install a **release**, not `main`. Releases are tested, changelogged, and give you a version
+number that means something; `main` is the development branch and may contain unreleased work.
+
+```bash
+git clone --branch v1.2.0 https://github.com/DigitalFederation/DigitalSportsCrm.git
+cd DigitalSportsCrm
+```
+
+Replace `v1.2.0` with the
+[latest release](https://github.com/DigitalFederation/DigitalSportsCrm/releases/latest).
+Cloning at a tag leaves git in "detached HEAD" state and prints a notice about it — that is
+expected and correct for a deployment, which should sit on a fixed release rather than follow a
+branch.
+
+::: details Tracking `main` instead
+Only if you intend to run unreleased code:
+
+```bash
+git clone https://github.com/DigitalFederation/DigitalSportsCrm.git
+```
+
+Be aware that the version shown in the app is the *last released* number until the next release
+is cut, so a `main` install reports `1.2.0` while actually being ahead of it. Use
+`git describe --tags` — output like `v1.2.0-7-gabc1234` means 7 commits past the release.
+:::
+
+### Install dependencies
+
+```bash
 composer install
 npm ci
 
@@ -85,6 +112,7 @@ from `.env.example`, which is grouped and commented. Key areas:
 |------|----------|
 | Application | `APP_NAME`, `APP_ENV`, `APP_KEY`, `APP_DEBUG`, `APP_URL` |
 | Localization and geography | `APP_LOCALE`, `APP_FALLBACK_LOCALE`, `APP_TIMEZONE`, `DEFAULT_COUNTRY_CODE`, `GEOGRAPHY_DATASET` — see [Localization and Geography](/guides/localization-and-geography) |
+| Currency | `CURRENCY_CODE`, `CURRENCY_SYMBOL`, `CURRENCY_SYMBOL_POSITION`, `CURRENCY_SYMBOL_SPACE`, `CURRENCY_DECIMALS`, `CURRENCY_DECIMAL_SEPARATOR`, `CURRENCY_THOUSANDS_SEPARATOR` — defaults to the Euro; set all seven together, see [Currency](/guides/localization-and-geography#currency) |
 | Database | `DB_CONNECTION`, `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` |
 | Branding | `FEDERATION_*` (name, short name, contact, logo) and `INTERNATIONAL_FEDERATION_*` — see `config/branding.php` |
 | Committees | Not env — define your federation's committees (and their licenses-attributed, purchase, and menu wiring) in `config/committees.php`. See [Configuring Committees](/guides/configuring-committees). |
@@ -182,13 +210,17 @@ Before upgrading an installation that relied on `DEFAULT_COUNTRY_ID`, follow the
 [localization and geography upgrade notes](/guides/localization-and-geography#updating-an-existing-installation).
 
 ```bash
-git pull
+git fetch --tags
+git checkout v1.2.0                # the release you are moving to
 composer install --no-dev --optimize-autoloader
 npm ci && npm run build
 php artisan migrate --force
 php artisan optimize:clear && php artisan optimize
 php artisan queue:restart
 ```
+
+See [Upgrading](/guides/upgrading) for how to check which version you are running, what the
+version numbers mean, and what to back up first.
 
 ## Verifying the install
 

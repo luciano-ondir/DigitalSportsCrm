@@ -13,6 +13,17 @@ export default defineConfig({
   description:
     'Documentation for Digital Sports CRM — an open-source Laravel platform for federation management.',
   cleanUrls: true,
+
+  // Internal design notes and specs are working notes, not operator documentation,
+  // and they contain Blade snippets like `{{ config(...) }}` that VitePress would
+  // otherwise parse as Vue expressions and fail the build on. Keep them in the
+  // repo, out of the published site.
+  //
+  // This is a list of directory names, so it does NOT cover a notes directory
+  // added later: adding one without listing it here breaks the docs build with a
+  // "Error parsing JavaScript expression" on the first Blade snippet it contains.
+  // Add new internal-notes directories here.
+  srcExclude: ['plans/**', 'superpowers/**'],
   lastUpdated: true,
   ignoreDeadLinks: true,
 
@@ -95,7 +106,10 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Getting Started', link: '/guides/getting-started' },
+          { text: 'Upgrading', link: '/guides/upgrading' },
           { text: 'Configuring Committees', link: '/guides/configuring-committees' },
+          { text: 'Localization & Geography', link: '/guides/localization-and-geography' },
+          { text: 'Territorial Federation Assignment', link: '/guides/territorial-federation-assignment' },
           { text: 'Navigation & Menus', link: '/guides/navigation-and-menus' },
           { text: 'Building Integrations', link: '/guides/building-integrations' },
           { text: 'Development Style Guide', link: '/guides/development-style-guide' },
