@@ -45,7 +45,7 @@
 
                             try {
                                 const response = await fetch(
-                                    '{{ route('individual.document.pay', $document->id) }}',
+                                    '{{ route('individual.document.pay', $document->id, false) }}',
                                     {
                                         method: 'POST',
                                         headers: {
