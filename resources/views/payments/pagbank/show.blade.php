@@ -57,6 +57,27 @@
             </p>
         @endif
     </div>
+    <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+
+        <a
+            href="{{ route('individual.document.show', $transaction->document_id) }}"
+            class="inline-flex items-center justify-center rounded-md
+                bg-blue-600 px-4 py-2 text-sm font-semibold text-white
+                hover:bg-blue-700 transition"
+        >
+            Voltar para a fatura
+        </a>
+
+        <a
+            href="/dashboard"
+            class="inline-flex items-center justify-center rounded-md
+                bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700
+                hover:bg-gray-200 transition"
+        >
+            Ir para o início
+        </a>
+
+    </div>
 
     @if ($transaction->status === 'pending')
         <script>

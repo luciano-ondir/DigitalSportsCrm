@@ -293,30 +293,56 @@ class PagBankGateway extends AbstractPaymentGateway
             . '/api/payment/webhook/pagbank';
     }
 
-    public function validateWebhookSignature(array $headers, string $payload): bool
-    {
-        $token = (string) $this->getConfig('token', '');
+    public function validateWebhookSignature(
+        array $headers,
+        string $payload
+    ): bool {
+        $signature = null;
+
+        foreach ($headers as $name => $values) {
+            if (strtolower($name) === 'x-authenticity-token') {
+                $signature = is_array($values)
+                    ? ($values[0] ?? null)
+                    : $values;
+
+                break;
+            }
+        }
+
+        /*
+        * The PagBank Orders Sandbox has been observed sending
+        * notifications without x-authenticity-token.
+        *
+        * Never trust the webhook payload itself in this mode.
+        * verifyPayment() must re-query GET /charges/{id} using
+        * our authenticated server-to-server connection before
+        * accepting PAID.
+        */
+        if (! filled($signature)) {
+            return (bool) $this->getConfig('sandbox', false)
+                && (bool) $this->getConfig(
+                    'allow_unsigned_sandbox_webhooks',
+                    false
+                );
+        }
+
+        $token = trim(
+            (string) $this->getConfig('token')
+        );
 
         if ($token === '') {
             return false;
         }
 
-        $receivedSignature = null;
+        $expected = hash(
+            'sha256',
+            $token . '-' . $payload
+        );
 
-        foreach ($headers as $name => $value) {
-            if (strtolower((string) $name) === 'x-authenticity-token') {
-                $receivedSignature = is_array($value) ? ($value[0] ?? null) : $value;
-                break;
-            }
-        }
-
-        if (! is_string($receivedSignature) || $receivedSignature === '') {
-            return false;
-        }
-
-        $expectedSignature = hash('sha256', $token . '-' . $payload);
-
-        return hash_equals($expectedSignature, trim($receivedSignature));
+        return hash_equals(
+            strtolower($expected),
+            strtolower(trim((string) $signature))
+        );
     }
 
     private function buildOrderPayload(
@@ -393,7 +419,9 @@ class PagBankGateway extends AbstractPaymentGateway
         return Http::withToken(
             trim((string) $this->getConfig('token'))
         )
-            ->acceptJson()
+            ->withHeaders([
+                'Accept' => '*/*',
+            ])
             ->asJson()
             ->connectTimeout(5)
             ->timeout(15);
