@@ -8,6 +8,7 @@ use Domain\Entities\Models\Entity;
 use Domain\Federations\Models\Federation;
 use Domain\Individuals\Models\Individual;
 use Domain\Memberships\Models\MemberSubscription;
+
 /**
  * Handles the authorization logic for document download requests.
  *
